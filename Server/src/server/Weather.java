@@ -6,6 +6,7 @@
 package server;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.logging.Level;
@@ -43,20 +44,22 @@ public class Weather {
             URLConnection urlConnection = new URL(dhmzUrl).openConnection();
             urlConnection.addRequestProperty("Accept", "application/xml");
 
-            Document document = builder.parse(urlConnection.getInputStream());
-            document.getDocumentElement().normalize();
+            try (InputStream inputStream = urlConnection.getInputStream()) {
+                Document document = builder.parse(inputStream);
+                document.getDocumentElement().normalize();
 
-            String expression = String.format("/Hrvatska/Grad[contains(GradIme,'%s')]/Podatci/Temp", city);
-            XPath xPath = XPathFactory.newInstance().newXPath();
+                String expression = String.format("/Hrvatska/Grad[contains(GradIme,'%s')]/Podatci/Temp", city);
+                XPath xPath = XPathFactory.newInstance().newXPath();
 
-            Node cityInfo = (Node) xPath.compile(expression).evaluate(document, XPathConstants.NODE);
+                Node cityNode = (Node) xPath.compile(expression).evaluate(document, XPathConstants.NODE);
 
-            return ((Element) cityInfo).getFirstChild().getTextContent();
-            
+                if (cityNode != null && cityNode instanceof Element) {
+                    return ((Element) cityNode).getFirstChild().getTextContent();
+                }
+            }
         } catch (IOException | ParserConfigurationException | XPathExpressionException | DOMException | SAXException e) {
             Logger.getLogger(Weather.class.getName()).log(Level.SEVERE, null, e);
-            return "Error! Something went wrong.";
         }
+        return "Error! Something went wrong.";
     }
-
 }
